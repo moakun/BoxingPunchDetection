@@ -1,0 +1,10 @@
+# Core — real-time detection, rule classifier, recorder (plan Phases 0-4)
+opencv-python>=4.8,<5
+mediapipe>=0.10,<0.11
+numpy>=1.24,<2          # mediapipe 0.10.x requires numpy<2
+
+# v2 neural classifier — training + ONNX inference (plan Phase 5)
+# Only needed if you run train.py or `main.py --nn model.onnx`.
+torch>=2.1
+onnx>=1.15
+onnxruntime>=1.17
