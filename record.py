@@ -4,7 +4,8 @@ Runs the same detection pipeline as ``main.py``. Every detected punch is
 snapshotted (its landmark-sequence window is frozen immediately, before the ring
 buffer can discard it) and queued. You then label the queue with one key each.
 
-    python record.py --angle 30 --out data
+    python record.py --angle 30 --out data      # from webcam
+    python record.py --source sparring.mp4       # label clips from existing footage
 
 Keys while running:
     s = straight    u = uppercut    h = hook      (label + save oldest pending)
