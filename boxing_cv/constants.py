@@ -52,6 +52,9 @@ class Config:
     frame_width: int = 1280
     frame_height: int = 720
     mirror: bool = True            # flip horizontally so it behaves like a mirror
+    # Assumed fps for image-folder sources, and the fallback when a video file
+    # doesn't report its own frame rate.
+    source_fps: float = 30.0
 
     # ---- MediaPipe Pose ----
     model_complexity: int = 1      # 0 fastest / 1 balanced / 2 most accurate

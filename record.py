@@ -33,7 +33,7 @@ from typing import Deque, List
 import cv2
 import numpy as np
 
-from boxing_cv.capture import WebcamCapture
+from boxing_cv.capture import open_source
 from boxing_cv.constants import Config
 from boxing_cv.features import window_to_array
 from boxing_cv.overlay import Overlay, _text
@@ -99,8 +99,14 @@ def save_clip(clip: Clip, trajectory: str, out: Path, angle: str) -> Path:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Punch clip recorder + labeler")
-    ap.add_argument("--camera", type=int, default=0)
+    ap.add_argument("--source", default=None, metavar="SPEC",
+                    help="webcam index, video file, or image folder (default: webcam)")
+    ap.add_argument("--camera", type=int, default=0, help="webcam index when no --source")
     ap.add_argument("--no-mirror", action="store_true")
+    ap.add_argument("--no-realtime", action="store_true",
+                    help="for file/folder sources, process flat out instead of paced")
+    ap.add_argument("--source-fps", type=float, default=30.0,
+                    help="assumed fps for image folders / videos with no fps tag")
     ap.add_argument("--complexity", type=int, default=1, choices=[0, 1, 2])
     ap.add_argument("--angle", default="front", help="camera angle tag: front/30/45/other")
     ap.add_argument("--out", default="data", help="output dataset directory")
@@ -112,19 +118,27 @@ def main() -> None:
     cfg.mirror = not args.no_mirror
     cfg.model_complexity = args.complexity
     cfg.enable_hook = args.hook
+    cfg.source_fps = args.source_fps
     out = Path(args.out)
 
     overlay = Overlay(cfg)
     pending: Deque[Clip] = deque()
     saved = 0
     win = "Recorder — s/u/h label, z zone, x discard, q quit"
+    realtime = False if args.no_realtime else None
 
-    with WebcamCapture(cfg) as cam:
-        if not cam.opened():
-            raise SystemExit(f"Could not open camera {cfg.camera_index}.")
+    try:
+        src = open_source(args.source, cfg, realtime=realtime)
+    except FileNotFoundError as e:
+        raise SystemExit(str(e))
+    with src:
+        if not src.opened():
+            raise SystemExit(
+                f"Could not open source {args.source or cfg.camera_index!r}."
+            )
         with Pipeline(cfg) as pipe:
             cv2.namedWindow(win, cv2.WINDOW_NORMAL)
-            for frame, t, _dt in cam.frames():
+            for frame, t, _dt in src.frames():
                 result = pipe.process(frame, t)
                 for ev in result.finalized:
                     overlay.flash(ev)
