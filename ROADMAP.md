@@ -13,10 +13,13 @@ data recording and NN training. This document tracks where it goes next.
 
 Do these first — they unblock everything else and turn "looks right" into numbers.
 
-- [ ] **1. Video / image-sequence input** (`--source clip.mp4`) — **S**
+- [x] **1. Video / image-sequence input** (`--source clip.mp4`) — **S** ✅ *done*
   Reproducible testing, demos, and building datasets from existing footage; also
-  removes the hard webcam dependency. Refactor `capture.py` into a `Source`
-  interface (webcam / video file / image folder).
+  removes the hard webcam dependency. `capture.py` is now a `FrameSource`
+  interface (`WebcamSource` / `VideoFileSource` / `ImageFolderSource`) picked by
+  `open_source(spec, cfg)`; non-webcam sources use the source's own timeline so
+  kinematics are processing-speed-independent. Wired into `main.py` and
+  `record.py` via `--source`; covered by `tests/test_sources.py`.
 - [ ] **2. Session logger + stats** — **S–M**
   The "Logger" box in the §4 pipeline diagram is unbuilt. Log every punch to
   JSONL/CSV (t, side, type, zone, conf, speed) → end-of-session and per-round

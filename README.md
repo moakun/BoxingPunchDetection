@@ -30,11 +30,31 @@ worst, which is exactly where a front-on jab/cross travels (plan §2.3).
 
 | Flag | Effect |
 |---|---|
-| `--camera N` | pick capture device (default 0) |
+| `--source SPEC` | input source: webcam index, **video file**, or **image folder** (default: webcam) |
+| `--camera N` | webcam index when no `--source` (default 0) |
 | `--no-mirror` | disable the mirror flip |
+| `--no-realtime` | for file/folder sources, process flat out instead of paced to the source fps |
+| `--source-fps F` | assumed fps for image folders / videos with no fps tag (default 30) |
 | `--complexity {0,1,2}` | pose model: 0 fastest … 2 most accurate (default 1) |
 | `--hook` | enable the experimental hook rule (front-cam hooks are unreliable) |
 | `--nn model.onnx` | use a trained v2 classifier instead of the rules |
+
+### Input sources
+
+Detection isn't tied to a live webcam — `--source` also accepts a recorded video
+or a folder of extracted frames, which is how you get reproducible testing,
+demos, and datasets built from existing footage:
+
+```bash
+python main.py --source sparring.mp4      # a video file
+python main.py --source frames/           # a folder of images (uses --source-fps)
+python record.py --source sparring.mp4    # label clips from footage
+```
+
+Non-webcam sources are timestamped on the **source's own timeline** (frame index
+÷ fps), so wrist velocities and elbow rates are identical no matter how fast your
+machine chews through the file. The preview is paced to that timeline by default;
+`--no-realtime` runs as fast as possible for batch processing.
 
 ## What each phase gives you
 
@@ -137,12 +157,15 @@ the model (§7).
 ## Testing
 
 ```bash
-python tests/test_synthetic.py        # camera-free; or: pytest tests/
+python tests/test_synthetic.py        # detection logic (camera-free)
+python tests/test_sources.py          # webcam/video/image sources; or: pytest tests/
 ```
 
-Synthesizes jab / uppercut / guard-fidget landmark trajectories and asserts the
-pipeline detects and classifies them correctly, with no false triggers on the
-fidget. Runs without a webcam.
+`test_synthetic.py` synthesizes jab / uppercut / guard-fidget landmark
+trajectories and asserts the pipeline detects and classifies them correctly, with
+no false triggers on the fidget. `test_sources.py` checks the video-file and
+image-folder sources (frame counts, source-timeline timestamps, mirror). Both run
+without a webcam.
 
 ## The mirror caveat
 
