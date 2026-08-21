@@ -10,7 +10,9 @@ direction.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import json
+from dataclasses import asdict, dataclass, field, fields
+from pathlib import Path
 
 # --------------------------------------------------------------------------
 # MediaPipe Pose (BlazePose) landmark indices — subject-anatomical L/R.
@@ -99,6 +101,29 @@ class Config:
     enable_hook: bool = False      # front-cam hooks self-occlude; off for v1
 
     # feature dimension is derived, not set by hand (see features.FEATURE_DIM)
+
+    # -- (de)serialization: persist tuning / calibration to a JSON file --
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Config":
+        """Build a Config from a dict, ignoring unknown keys."""
+        known = {f.name for f in fields(cls)}
+        unknown = set(d) - known
+        if unknown:
+            raise ValueError(f"unknown config keys: {sorted(unknown)}")
+        return cls(**{k: v for k, v in d.items() if k in known})
+
+    def save(self, path) -> Path:
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")
+        return p
+
+    @classmethod
+    def load(cls, path) -> "Config":
+        return cls.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))
 
 
 DEFAULT_CONFIG = Config()

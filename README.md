@@ -82,9 +82,10 @@ to record your own data.
 | `classify_rules.py` | v1 rule-based `(trajectory, role, zone)` |
 | `classify_nn.py` | v2 two-head 1-D CNN + ONNX/torch inference wrapper |
 | `naming.py` | `(trajectory, role, zone)` → boxing term (jab, body cross, …) |
-| `overlay.py` | skeleton, live readouts, counter, punch flash |
+| `overlay.py` | skeleton, live readouts, counter, round/cadence, punch flash |
 | `pipeline.py` | wires it all together (used by `main.py` and `record.py`) |
-| `capture.py` | webcam loop with frame timing / FPS |
+| `capture.py` | frame sources: webcam / video file / image folder |
+| `session.py` | punch logger (JSONL) + end-of-session & per-round stats |
 
 Entrypoints at the repo root: `main.py` (live app), `record.py` (data tool),
 `train.py` (train + export).
@@ -125,6 +126,37 @@ Coordinates are torso-normalized (centered on the mid-hip, scaled by torso
 length), so these thresholds are independent of where you stand or how far you
 are from the camera.
 
+## Sessions & stats
+
+Every run logs each punch to `sessions/<timestamp>.jsonl` (one JSON record per
+punch: time, round, side, type, role, zone, display name, peak elbow angle, peak
+wrist speed, NN confidence, stance) and writes a `.summary.json` alongside it.
+On exit you get a console summary:
+
+```
+Session: 42 punches in 180s (14.0/min)
+  types: jab 18, cross 12, body cross 6, uppercut 6
+  zones: head 30, body 12
+  hands: right 24, left 18
+  peak speed: 7.2 torso/s (relative)
+  rounds:
+    R1: 15  (jab 7, cross 5, ...)
+    R2: 14  (...)
+```
+
+The live HUD shows the current round, a round timer, and cadence (punches/min).
+
+```bash
+python main.py --round-len 180      # 3-minute timed rounds (auto-advance)
+python main.py                      # single round; press 'n' to advance manually
+python main.py --no-log             # don't write anything to disk
+python main.py --log run1.jsonl     # choose the log path
+```
+
+Keys: `n` next round · `r` reset the session (a marker is written; disk history
+is preserved). Because non-webcam sources use the source timeline, re-running the
+same video produces an identical log — handy for comparing tuning changes.
+
 ## Recording data (Phase 4)
 
 ```bash
@@ -158,14 +190,16 @@ the model (§7).
 
 ```bash
 python tests/test_synthetic.py        # detection logic (camera-free)
-python tests/test_sources.py          # webcam/video/image sources; or: pytest tests/
+python tests/test_sources.py          # webcam/video/image sources
+python tests/test_session.py          # logging + stats; or run all with: pytest tests/
 ```
 
 `test_synthetic.py` synthesizes jab / uppercut / guard-fidget landmark
 trajectories and asserts the pipeline detects and classifies them correctly, with
 no false triggers on the fidget. `test_sources.py` checks the video-file and
-image-folder sources (frame counts, source-timeline timestamps, mirror). Both run
-without a webcam.
+image-folder sources (frame counts, source-timeline timestamps, mirror).
+`test_session.py` checks the JSONL log, summary numbers, and round segmentation.
+All run without a webcam.
 
 ## The mirror caveat
 

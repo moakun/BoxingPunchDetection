@@ -34,7 +34,9 @@ from boxing_cv.session import SessionLog, default_log_path, format_summary
 
 
 def build_config(args: argparse.Namespace) -> Config:
-    cfg = Config()
+    # A --config file supplies tuned/calibrated thresholds; CLI flags below
+    # control orthogonal things (camera, mirror, model), so there's no conflict.
+    cfg = Config.load(args.config) if args.config else Config()
     cfg.camera_index = args.camera
     cfg.mirror = not args.no_mirror
     cfg.model_complexity = args.complexity
@@ -70,6 +72,8 @@ def main() -> None:
     ap.add_argument("--no-log", action="store_true", help="disable session logging")
     ap.add_argument("--round-len", type=float, default=0.0, metavar="SECONDS",
                     help="length of a timed round; 0 = single round (use 'n' to advance)")
+    ap.add_argument("--config", default=None, metavar="PATH",
+                    help="load tuned/calibrated thresholds from calibrate.py")
     args = ap.parse_args()
 
     cfg = build_config(args)

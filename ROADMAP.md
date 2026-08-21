@@ -20,10 +20,14 @@ Do these first — they unblock everything else and turn "looks right" into numb
   `open_source(spec, cfg)`; non-webcam sources use the source's own timeline so
   kinematics are processing-speed-independent. Wired into `main.py` and
   `record.py` via `--source`; covered by `tests/test_sources.py`.
-- [ ] **2. Session logger + stats** — **S–M**
-  The "Logger" box in the §4 pipeline diagram is unbuilt. Log every punch to
-  JSONL/CSV (t, side, type, zone, conf, speed) → end-of-session and per-round
-  summary (count, punches/min, type distribution).
+- [x] **2. Session logger + stats** — **S–M** ✅ *done*
+  `session.py` (`SessionLog`) writes every punch to `sessions/<ts>.jsonl` (time,
+  round, side, type, role, zone, display, peak elbow, peak speed, conf, stance)
+  and emits an end-of-session + per-round summary (count, punches/min,
+  type/zone/side distributions) to console and `.summary.json`. Live HUD shows
+  round, round timer, and cadence; `--round-len` for timed rounds or `n` to
+  advance manually. Added `peak_speed` to `PunchEvent`; covered by
+  `tests/test_session.py`.
 - [ ] **3. Evaluation harness** (`eval.py`) — **M**
   Implements plan §10: per-class precision/recall + confusion matrix on a
   held-out session, spotter miss/false-trigger rate on a guard-only clip, and a

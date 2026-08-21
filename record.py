@@ -112,9 +112,11 @@ def main() -> None:
     ap.add_argument("--angle", default="front", help="camera angle tag: front/30/45/other")
     ap.add_argument("--out", default="data", help="output dataset directory")
     ap.add_argument("--hook", action="store_true")
+    ap.add_argument("--config", default=None, metavar="PATH",
+                    help="load tuned/calibrated thresholds from calibrate.py")
     args = ap.parse_args()
 
-    cfg = Config()
+    cfg = Config.load(args.config) if args.config else Config()
     cfg.camera_index = args.camera
     cfg.mirror = not args.no_mirror
     cfg.model_complexity = args.complexity
