@@ -86,9 +86,10 @@ to record your own data.
 | `pipeline.py` | wires it all together (used by `main.py` and `record.py`) |
 | `capture.py` | frame sources: webcam / video file / image folder |
 | `session.py` | punch logger (JSONL) + end-of-session & per-round stats |
+| `calibrate.py` | derive spotter thresholds for your body + camera |
 
-Entrypoints at the repo root: `main.py` (live app), `record.py` (data tool),
-`train.py` (train + export).
+Entrypoints at the repo root: `main.py` (live app), `calibrate.py` (tuning),
+`record.py` (data tool), `train.py` (train + export).
 
 ## How classification works
 
@@ -109,10 +110,30 @@ large **elbow extension** along a roughly horizontal path. The spotter leans on
 **elbow-extension angle** rather than hand displacement, because extension is
 visible in the image plane even when the hand moves toward the camera (§2.3).
 
-## Tuning
+## Calibration (recommended)
 
-Every threshold lives in `boxing_cv/constants.py` (`Config`). The ones you'll
-most likely adjust against your own camera/lighting:
+The spotter thresholds default to sane values, but the reliable way to make
+detection work for *your* body, reach, and camera is to calibrate:
+
+```bash
+python calibrate.py --out calib.json     # follow the on-screen prompts
+python main.py --config calib.json       # run with your calibrated thresholds
+```
+
+It runs two short prompted phases — hold your **guard**, then throw **straight
+punches** — measures your wrist-speed noise floor, punch speed, and elbow angles,
+and derives `spot_v_on` / `spot_v_off` / `spot_elbow_loaded_deg` /
+`spot_min_extend_deg`. The result is written as a JSON `Config` that `main.py`,
+`record.py`, and `calibrate.py` all accept via `--config`. If your punches aren't
+clearly faster than your guard jitter it says so and keeps the defaults rather
+than writing bad thresholds. You can also calibrate from footage
+(`--source clip.mp4`).
+
+## Tuning (manual)
+
+Prefer calibration above; to hand-tune, every threshold lives in
+`boxing_cv/constants.py` (`Config`), and any subset can be pinned in a
+`--config` JSON. The ones that matter most:
 
 - `spot_v_on` / `spot_v_off` — punch onset/offset wrist speed (torso-lengths/s).
   Raise `spot_v_on` if guard fidgets trigger; lower it if soft punches are
@@ -191,7 +212,8 @@ the model (§7).
 ```bash
 python tests/test_synthetic.py        # detection logic (camera-free)
 python tests/test_sources.py          # webcam/video/image sources
-python tests/test_session.py          # logging + stats; or run all with: pytest tests/
+python tests/test_session.py          # logging + stats
+python tests/test_calibrate.py        # calibration + config; or all: pytest tests/
 ```
 
 `test_synthetic.py` synthesizes jab / uppercut / guard-fidget landmark
@@ -199,7 +221,8 @@ trajectories and asserts the pipeline detects and classifies them correctly, wit
 no false triggers on the fidget. `test_sources.py` checks the video-file and
 image-folder sources (frame counts, source-timeline timestamps, mirror).
 `test_session.py` checks the JSONL log, summary numbers, and round segmentation.
-All run without a webcam.
+`test_calibrate.py` drives synthetic guard/punch frames through the calibrator and
+round-trips a `Config` through JSON. All run without a webcam.
 
 ## The mirror caveat
 

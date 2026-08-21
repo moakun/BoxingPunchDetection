@@ -32,10 +32,13 @@ Do these first — they unblock everything else and turn "looks right" into numb
   Implements plan §10: per-class precision/recall + confusion matrix on a
   held-out session, spotter miss/false-trigger rate on a guard-only clip, and a
   latency histogram (ms/frame). This is what honestly gates v1 → v2.
-- [ ] **4. Calibration routine** (`--calibrate`) — **M**
-  Attacks the #1 fragility: thresholds are hardcoded in `constants.py`. A short
-  guided capture ("guard… throw 5 jabs") auto-sets `V_ON`/`V_OFF`, guard-elbow
-  baseline, stance, and the head/body divider for *this* body + camera.
+- [x] **4. Calibration routine** (`calibrate.py`) — **M** ✅ *done*
+  Attacks the #1 fragility: thresholds were hardcoded. `calibrate.py` runs two
+  prompted phases (guard, then straights), and `boxing_cv/calibrate.py`
+  (`Calibrator`) derives `spot_v_on`/`spot_v_off`/`spot_elbow_loaded_deg`/
+  `spot_min_extend_deg` for this body+camera, falling back to defaults if punches
+  aren't distinct from guard. Saved as a JSON `Config`; loaded via `--config` in
+  `main.py`/`record.py`/`calibrate.py`. Covered by `tests/test_calibrate.py`.
 
 ## B. Accuracy & robustness
 
@@ -90,8 +93,9 @@ Do these first — they unblock everything else and turn "looks right" into numb
 
 ## E. Engineering & deployment
 
-- [ ] **19. Config file** (`--config my.yaml`) — **S**
-  Persist tuning instead of editing `constants.py` or re-passing flags.
+- [~] **19. Config file** (`--config my.json`) — **S** — *partly done (via #4)*
+  `Config.save`/`load` (JSON) exist and `main.py`/`record.py`/`calibrate.py` take
+  `--config`. Remaining: YAML support and exposing more fields as CLI overrides.
 - [ ] **20. CI + quality gates** — **S**
   GitHub Actions running `tests/test_synthetic.py`, plus `ruff` (lint/format)
   and `mypy`.
