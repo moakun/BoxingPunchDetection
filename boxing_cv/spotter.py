@@ -44,6 +44,7 @@ class PunchEvent:
     zone: str                       # "head" / "body"
     peak_elbow: float               # deg at max extension
     onset_elbow: float              # deg at onset
+    peak_speed: float               # max wrist speed during the throw (torso/s)
 
     # Filled downstream:
     type_: Optional[str] = None     # "straight" / "uppercut" / "hook"
@@ -68,6 +69,7 @@ class ArmSpotter:
         self._onset_elbow = 0.0
         self._onset_wrist = np.zeros(3, np.float32)
         self._max_elbow = -1.0
+        self._max_speed = 0.0
         self._peak_t = 0.0
         self._peak_wrist = np.zeros(3, np.float32)
         self._peak_sternum_y = 0.0
@@ -102,6 +104,7 @@ class ArmSpotter:
                 self._peak_sternum_y = self._sternum_y(ff)
 
         elif self.state == EXTENDING:
+            self._max_speed = max(self._max_speed, speed)
             if elbow > self._max_elbow:
                 self._max_elbow = elbow
                 self._peak_t = t
@@ -128,6 +131,7 @@ class ArmSpotter:
                         zone=self._zone_from(self._peak_wrist[1], self._peak_sternum_y),
                         peak_elbow=self._max_elbow,
                         onset_elbow=self._onset_elbow,
+                        peak_speed=self._max_speed,
                     )
                     self._last_emit_t = self._peak_t
                 self.state = RETRACT

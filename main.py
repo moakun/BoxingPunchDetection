@@ -7,8 +7,13 @@
     python main.py --no-mirror           # disable the mirror flip
     python main.py --complexity 0        # faster pose model on weak hardware
     python main.py --nn model.onnx       # use the v2 neural classifier if trained
+    python main.py --round-len 180       # 3-minute timed rounds
 
-Keys:  q / Esc = quit   r = reset counter
+Every punch is logged to sessions/<timestamp>.jsonl with an end-of-session
+summary (totals, punches/min, type distribution, per round). Use --no-log to
+disable or --log PATH to choose the file.
+
+Keys:  q / Esc = quit   r = reset session   n = next round
 
 This is the Phase-3 deliverable: it counts punches and labels each as
 (type, zone) using the rule classifier. Point a webcam at yourself, ideally at
@@ -25,6 +30,7 @@ from boxing_cv.capture import open_source
 from boxing_cv.constants import Config
 from boxing_cv.overlay import Overlay
 from boxing_cv.pipeline import Pipeline
+from boxing_cv.session import SessionLog, default_log_path, format_summary
 
 
 def build_config(args: argparse.Namespace) -> Config:
@@ -59,6 +65,11 @@ def main() -> None:
     ap.add_argument("--hook", action="store_true", help="enable experimental hook rule")
     ap.add_argument("--nn", type=str, default=None, metavar="MODEL.onnx",
                     help="use the v2 ONNX classifier instead of rules")
+    ap.add_argument("--log", type=str, default=None, metavar="PATH",
+                    help="JSONL punch log path (default: auto under sessions/)")
+    ap.add_argument("--no-log", action="store_true", help="disable session logging")
+    ap.add_argument("--round-len", type=float, default=0.0, metavar="SECONDS",
+                    help="length of a timed round; 0 = single round (use 'n' to advance)")
     args = ap.parse_args()
 
     cfg = build_config(args)
@@ -71,7 +82,13 @@ def main() -> None:
         src = open_source(args.source, cfg, realtime=realtime)
     except FileNotFoundError as e:
         raise SystemExit(str(e))
-    with src:
+
+    log_path = None if args.no_log else (args.log or default_log_path())
+    session = SessionLog(log_path, round_len=args.round_len,
+                         source=str(args.source or f"webcam:{cfg.camera_index}"))
+    summary_path = None
+
+    with src, session:
         if not src.opened():
             raise SystemExit(
                 f"Could not open source {args.source or cfg.camera_index!r}. "
@@ -80,15 +97,20 @@ def main() -> None:
         with Pipeline(cfg, classifier=classifier) as pipe:
             cv2.namedWindow(win, cv2.WINDOW_NORMAL)
             for frame, t, _dt in src.frames():
+                session.tick(t)
                 result = pipe.process(frame, t)
                 for ev in result.finalized:
                     overlay.flash(ev)
-                    print(f"[{pipe.total:3d}] {ev.display:<14s} "
-                          f"(side={ev.side} elbow={ev.peak_elbow:.0f} zone={ev.zone})")
+                    session.log(ev, ev.peak_t, pipe.stance.name)
+                    print(f"[{pipe.total:3d}] R{session.round} {ev.display:<14s} "
+                          f"(side={ev.side} elbow={ev.peak_elbow:.0f} "
+                          f"speed={ev.peak_speed:.1f} zone={ev.zone})")
 
                 overlay.render(
                     frame, result.lm, result.ff, src.fps,
                     pipe.stance, pipe.spotter, pipe.total, pipe.counts,
+                    round_no=session.round, ppm=session.ppm,
+                    secs_left=session.round_time_left,
                 )
                 cv2.imshow(win, frame)
 
@@ -97,8 +119,16 @@ def main() -> None:
                     break
                 if key == ord("r"):
                     pipe.reset_counts()
+                    session.reset()
+                if key == ord("n"):
+                    session.next_round()
+
+        summary_path = session.write_summary()
 
     cv2.destroyAllWindows()
+    print("\n" + format_summary(session.summary()))
+    if summary_path:
+        print(f"\nLog:     {log_path}\nSummary: {summary_path}")
     if not src.is_live:
         print(f"Done — {pipe.total} punches: {dict(pipe.counts)}")
 
